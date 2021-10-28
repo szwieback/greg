@@ -50,10 +50,10 @@ def prepare_data(paramlist, rng=None):
 
 def default_paramlist(L=100, R=5000):
     params0 = {
-        'R': R, 'L': L, 'P': 40,'incoh_bad': None}
+        'R': R, 'L': L, 'P': 40, 'incoh_bad': None}
     coh_decay_list = [0.5, 0.9]
     coh_infty_list = [0.0, 0.1, 0.3, 0.5, 0.7]
-    
+
     paramlist = []
     for coh_decay in coh_decay_list:
         for coh_infty in coh_infty_list:
@@ -62,22 +62,28 @@ def default_paramlist(L=100, R=5000):
             paramlist.append(params)
     return paramlist
 
-def optimize_hadreg(data, hadreglparam0=None, maxiter=5):
+def optimize_hadreg(data, hadreglparam0=None, maxiter=20):
     if hadreglparam0 is None:
         hadreglparam0 = np.zeros(2)
     def fun(hadreglparam):
         return accuracy_scenario(hadreglparam, data)
     res = minimize(fun, hadreglparam0, method='BFGS', options={'maxiter': maxiter})
     hadreglparam = res.x
-#     return np.array([logistic(hadreglparam[0]), logistic(hadreglparam[1])])
     return hadreglparam
-        
+
 if __name__ == '__main__':
-#     print(circular_accuracy(results_scenario(500)))
-    # write wrapper, save results, parallelize
-    looks = [10, 20, 40, 80, 160, 320]
+
+    pathout = '/home/simon/Work/greg/hadamard'
+
+    import os
     seed = 1
-    rng = default_rng(seed)
-    paramlist = default_paramlist(L=100)
-    data = prepare_data(paramlist, rng=rng)
-    optimize_hadreg(data, maxiter=20)
+    looks = np.arange(4, 21, 2) ** 2
+
+    for L in looks:
+        fnout = os.path.join(pathout, f'{L}.npy')
+        rng = default_rng(seed)
+        paramlist = default_paramlist(L=100)
+        data = prepare_data(paramlist, rng=rng)
+        hadreglparam = optimize_hadreg(data, maxiter=20)
+        np.save(fnout, hadreglparam)
+
