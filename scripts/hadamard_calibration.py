@@ -73,11 +73,11 @@ def prepare_data(paramlist, rng=None):
         data.append(SimCG0(C_obs=C_obs, G0=G0))
     return data
 
-def default_paramlist(L=100, R=5000):
+def default_paramlist(L=100, R=5000, P=40, coh_decay_list=None, coh_infty_list=None):
     params0 = {
-        'R': R, 'L': L, 'P': 40, 'incoh_bad': None}
-    coh_decay_list = [0.5, 0.9]
-    coh_infty_list = [0.0, 0.1, 0.3, 0.5, 0.7]
+        'R': R, 'L': L, 'P': P, 'incoh_bad': None}
+    if coh_decay_list is None: coh_decay_list = [0.5, 0.9]
+    if coh_infty_list is None: coh_infty_list = [0.0, 0.1, 0.3, 0.5, 0.7]
 
     paramlist = []
     for coh_decay in coh_decay_list:
@@ -87,40 +87,51 @@ def default_paramlist(L=100, R=5000):
             paramlist.append(params)
     return paramlist
 
-# return dictionary that includes accuracy for optimal and no reg
-def optimize_hadreg(data, hadreglparam0=None, maxiter=20):
+def optimize_hadreg(data, hadreglparam0=None, maxiter=20, gtol=1e-8):
     if hadreglparam0 is None:
         hadreglparam0 = np.zeros(2)
     f_noreg = accuracy_scenario(None, data)
     def fun(hadreglparam):
         return accuracy_scenario(hadreglparam, data)
-    res = minimize(fun, hadreglparam0, method='BFGS', options={'maxiter': maxiter})
+    options = {'maxiter': maxiter, 'gtol': gtol}
+    res = minimize(fun, hadreglparam0, method='BFGS', options=options)
     hadregres = {'hadreglparam': res.x, 'f': res.fun, 'f_noreg': f_noreg}
     return hadregres
 
 def calibrate_hadreg(
-        pathout, looks, seed=1, R=10000, overwrite=False, njobs=-2, maxiter=20):
+        pathout, looks, seed=1, R=10000, P=40, coh_decay_list=None, coh_infty_list=None,
+        overwrite=False, njobs=-2, maxiter=20):
     res = {}
     def _calibrate_hadreg(L):
         fnout = os.path.join(pathout, f'{L}.p')
         if overwrite or not os.path.exists(fnout):
             rng = default_rng(seed)
-            paramlist = default_paramlist(L=L, R=R)
+            paramlist = default_paramlist(
+                L=L, R=R, P=P, coh_decay_list=coh_decay_list, coh_infty_list=coh_infty_list)
             data = prepare_data(paramlist, rng=rng)
             hadregres = optimize_hadreg(data, maxiter=maxiter)
             save_object(hadregres, fnout)
         else:
             hadregres = load_object(fnout)
         return hadregres
-    
+
         res[L] = hadregres
-        
+
     from joblib import Parallel, delayed
     res = Parallel(n_jobs=njobs)(delayed(_calibrate_hadreg)(L) for L in looks)
-    for L in res:
-        print(L, logistic(res[L][0]), logistic(res[L][1]))
+    for jL, L in enumerate(looks):
+        print(L, logistic(res[jL]['hadreglparam']), res[jL]['f'], res[jL]['f_noreg'])
 
 if __name__ == '__main__':
-    pathout = '/home2/Work/greg/hadamard'
+    path0 = '/home2/Work/greg/hadamard'
     looks = np.arange(3, 26, 1) ** 2
-    calibrate_hadreg(pathout, looks)
+    P = 40
+    R = 10000
+    scenarios = {'broad': (None, None), 'low': ([0.5], [0.0]), 'high': ([0.9], [0.5])}
+    for scenario in scenarios:
+        pathout = os.path.join(path0, scenario)
+        coh_decay_list, coh_infty_list = scenarios[scenario]
+        calibrate_hadreg(
+            pathout, looks, P=P, R=R, coh_decay_list=coh_decay_list, 
+            coh_infty_list=coh_infty_list)
+

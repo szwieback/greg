@@ -7,7 +7,7 @@ Created on Oct 25, 2021
 import numpy as np
 
 import pyximport; pyximport.install()
-from cython_greg import fdd, covm
+from greg.cython_greg import fdd, covm
 
 def covariance_matrix(y):
     y_shape = y.shape
