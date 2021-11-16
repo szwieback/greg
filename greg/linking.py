@@ -5,9 +5,9 @@ Created on Oct 25, 2021
 '''
 import numpy as np
 
-from greg import correlation, force_doubly_nonnegative
+from preproc import correlation, force_doubly_nonnegative
 
-from greg.cython_greg import _EMI
+from cython_greg import _EMI
 
 
 def EMI(C_obs, G=None, corr=True):
