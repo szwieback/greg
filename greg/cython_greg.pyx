@@ -60,7 +60,8 @@ def fdd(double[:, :, :] G_raw, double[:, :, :] G_out, double min_eig=0.0):
 
     for n in range(N):
         # may need to call lapack directly
-        lam_view[:] = eigh(G_raw[n, :, :], subset_by_index=[0, 0], eigvals_only=True)[0]
+        lam_view[:] = eigh(
+            G_raw[n, :, :], subset_by_index=[0, 0], eigvals_only=True)[0]
 
         G_out[n, :, :] = G_raw[n, :, :]
         negshift = lam_view[0] - min_eig
@@ -93,6 +94,7 @@ def _EMI(double complex[:, :, :] C_obs, double[:, :, :] G):
     cdef double [:] lam_view = lam
     
     for n in range(N):
+        # may need to call lapack directly
         M1[:, :] = np.linalg.pinv(G[n, :, :])
         M2[:, :] = C_obs[n, :, :]            
         M1 *= M2
