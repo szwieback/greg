@@ -88,11 +88,11 @@ def cca_2lv(C, M1):
     return W1, W2, B, Phi2, U1, Cisqr1
 
 
-def link_step():
+def link_step(Cx, W1, W2, B, ceig1):
     Czx = np.zeros(
-        C_.shape[:-2] + (W2.shape[-2] + 1,) * 2, dtype=C_.dtype)
+        Cx.shape[:-2] + (W2.shape[-2] + 1,) * 2, dtype=Cx.dtype)
     Czx[..., 0, 0] = 1
-    Czx[..., 1:, 1:] = C_[..., M1:, M1:]
+    Czx[..., 1:, 1:] = Cx
     Czx[..., 1:, 0] = B[..., 0,:] * W2[..., 0]
     Czx[..., 0, 1:] = Czx[..., 1:, 0].conj()
     # compute ceig
@@ -100,9 +100,10 @@ def link_step():
     # adjust phase offset
     # cref = np.sum(ceig_list[-1]* W1[...,0], axis=-1)
     # cref = np.sum(ceig_list[-1].conj() * W1[..., 0], axis=-1)
-    cref = ceig_list[-1][..., -1] * W1[..., -1, 0].conj()
+    cref = ceig1[..., -1] * W1[..., -1, 0].conj()
     cref /= np.abs(cref)
     ceig2 *= cref[..., np.newaxis]
+    return ceig2
 
     
 def test():
@@ -134,46 +135,44 @@ def test_sequential():
     M = 32
     M1 = 4
     d = 1
-    steps = M // M1 - 1
     
     from simulation import decay_model
-    y = decay_model(P=M, R=50, coh_decay=0.7, coh_infty=0.4)
+    y = decay_model(P=M, R=50, coh_decay=0.2, coh_infty=0.0)
     C = np.mean(y[..., np.newaxis] * y.conj()[..., np.newaxis,:], axis=1)
 
+    steps = int((M - 0.5) // M1)
     W_list = []
     B_list = []
     ceig_list = []
     for step in range(steps):
         M_start = step * M1
-        M_end = (step + 2) * M1 if (step + 2) * M1 <= M else M
+        M_end = (step + 2) * M1 if step != (steps - 1) else M
         C_ = C[..., M_start:M_end, M_start:M_end]
         W1, W2, B, _, U1, Cisqr1 = cca_2lv(C_, M1)
         W_list.append(W1)
         if step == 0:
-            U1_C_cross_old, B_old, C_old = None, None, None
+            U1_C_cross_old = None
             ceig1 = EMI_py(C_[...,:M1,:M1])
-            ceig2 = np.zeros(1)  # fix this later
-            ceig1 = EMI_py(C_)
             ceig_list.append(ceig1[...,:M1])
-            ceig_list.append(ceig1[..., M1:])
-        elif step > 1:
+            ceig2 = link_step(C_[..., M1:, M1:], W1, W2, B, ceig_list[-1])
+            ceig_list.append(ceig2[..., 1:])
+        else:
             B_revised = np.matmul(U1_C_cross_old, U1).real  # can be <0
             B_list.append(B_revised)
-            link_step()
+            ceig2 = link_step(C_[..., M1:, M1:], W1, W2, B, ceig_list[-1])
             # return theta
             ceig_list.append(ceig2[..., 1:])
         if step == steps - 1:
             B_list.append(B)
             W_list.append(W2)
-            # add last theta
+        
         U1_C_cross_old = np.matmul(
             np.swapaxes(U1, -2, -1).conj(), C_[...,:M1, M1:])
-        # B_old = B
-        # C_old = C_
-        # print(W1_old.shape)
     ceig = np.concatenate(ceig_list, axis=-1)
-    print(np.angle(ceig[1,:]))
-    print(np.angle(EMI_py(C)[1,:]))
+    jshow = 1
+    print(np.angle(ceig)[jshow,:])
+    print(np.angle(EMI_py(C)[jshow,:]))
+    # print(C.shape, ceig.shape)
     # major phase linking issues to do with inplace
     # check signs and referencing
     
