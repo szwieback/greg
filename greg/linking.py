@@ -57,4 +57,3 @@ def EMI_py(C_obs, G=None, corr=True):
 if __name__ == '__main__':
     C_obs = np.array([[3, 1j], [-1j, 4]])
     ceig = EMI_py(C_obs)
-    print(ceig.shape)

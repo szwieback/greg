@@ -87,6 +87,46 @@ def cca_2lv(C, M1):
     return W1, W2, B, U1
 
 
+def semicca_2lv(C, M1, W1_prior=None, beta=1.0):
+    # with 2 latent variables
+    d = 1  # must be
+    if len(C.shape) > 3: raise NotImplementedError
+    N = C.shape[0]
+    M = C.shape[-1]
+    if M1 >= M: raise ValueError(f'M1 {M1} exceeds dimension of C {M}')
+    if M != C.shape[-2]: raise ValueError(f'C is not square')
+    
+    B = np.empty((N, d, d), dtype=np.float64)
+    W1 = np.empty((N, M1, d), dtype=np.complex128)
+    W2 = np.empty((N, M - M1, d), dtype=np.complex128)
+    _A = np.empty((M, M), dtype=np.complex128)
+    _B = np.empty((M, M), dtype=np.complex128)
+    from scipy.linalg import eigh
+    for jp in range(N):
+        # move _A, _B construction into loop for memory reasons
+        _A[:], _B[:] = 0, 0
+        _C = C[jp,:,:].copy()  # faster?
+        _A[:M1, M1:] = _C[:M1, M1:]
+        _A[M1:,:M1] = _C[M1:,:M1]
+        _B[:M1,:M1] = _C[:M1,:M1]
+        _B[M1:, M1:] = _C[M1:, M1:]
+        rho, W = eigh(
+            _A, b=_B, subset_by_index=[M - 1, M - 1],
+            driver='gvx')
+        # W1[jp, :, 0] = np.matmul(_C[:M1, :M1], W[:M1, 0]) * np.sqrt(2)
+        # W2[jp, :, 0] = np.matmul(_C[M1:, M1:], W[M1:, 0]) * np.sqrt(2)
+        _n1 = np.sqrt(
+            np.matmul(W[:M1, 0].conj().T, np.matmul(_C[:M1,:M1], W[:M1, 0]))) 
+        W1[jp,:, 0] = np.matmul(_C[:M1,:M1], W[:M1, 0]) / _n1
+        _n2 = np.sqrt(
+            np.matmul(W[M1:, 0].conj().T, np.matmul(_C[M1:, M1:], W[M1:, 0]))) 
+        W2[jp,:, 0] = np.matmul(C[jp, M1:, M1:], W[M1:, 0]) / _n2
+        rho2 = ((_n1 * _n2) ** (-1)
+            * np.matmul(W[:M1, 0].conj().T, np.matmul(_C[:M1, M1:], W[M1:, 0]))) 
+        B[jp, 0, 0] = rho2
+    return W1, W2, B, None
+
+
 def link_step(Cx, W1, W2, B, ceig1, method='max'):
     Czx = np.zeros(
         Cx.shape[:-2] + (W2.shape[-2] + 1,) * 2, dtype=Cx.dtype)
@@ -107,14 +147,15 @@ def link_step(Cx, W1, W2, B, ceig1, method='max'):
     ceig2 *= cref[..., np.newaxis]
     return ceig2[..., 1:]
 
+
 def link_step_test(Cx, W1, W2, B, ceig1):
     Cxcca = Cx.copy()
     M1 = W1.shape[-2]
-    Cxcca[..., :M1, M1:] = np.matmul(W1, np.swapaxes(np.matmul(W2, B), -2, -1).conj())
+    Cxcca[...,:M1, M1:] = np.matmul(W1, np.swapaxes(np.matmul(W2, B), -2, -1).conj())
     Cxcca[..., M1:,:M1] = np.swapaxes(Cxcca[...,:M1, M1:], -2, -1).conj()
-    Cxcca = Cx.copy() # this works better for slowly decaying with plateau
+    Cxcca = Cx.copy()  # this works better for slowly decaying with plateau
     ceig_all = EMI_py(Cxcca)
-    cref = np.sum(ceig_all[..., :M1].conj() * ceig1, axis=-1)
+    cref = np.sum(ceig_all[...,:M1].conj() * ceig1, axis=-1)
     cref /= np.abs(cref)
     ceig_all *= cref[..., np.newaxis]
     return ceig_all[..., M1:]
@@ -139,15 +180,12 @@ def test():
     Sigma_est[..., M1:,:M1] = np.swapaxes(Sigma_est[...,:M1, M1:], -2, -1).conj()
     print(U1.shape, U2.shape)
     rho_2 = np.matmul(np.swapaxes(U1, -2, -1).conj(), np.matmul(C[...,:M1, M1:], U2)).real
-    
-    print(B[0:10].flatten())
-    print(rho_2[0:10].flatten())
 
 
 def test_sequential():
 
-    P = 32
-    M1 = 12
+    P = 12  # 32
+    M1 = 8
     R = 250
     d = 1
     ref_method = 'weighted'
@@ -158,9 +196,10 @@ def test_sequential():
     # why is decay of 0.7 infty 0.2 worse than decay of 0.3, ifnty 0.2; M1=16, P=96
     # because cca then focuses too much on the short-term signal?
     y = decay_model(
-        P=P, L=64, R=R, coh_decay=0.98, coh_infty=0.2, cphases=cphases, rng=rng)
+        P=P, L=64, R=R, coh_decay=0.6, coh_infty=0.2, cphases=cphases, rng=rng)
+    y = 3 * y
+    # todo: replace by covariance matrix
     C = np.mean(y[..., np.newaxis] * y.conj()[..., np.newaxis,:], axis=1)
-
 
     M = P
     steps = int((M - 0.5) // M1)
@@ -171,9 +210,26 @@ def test_sequential():
         M_start = step * M1
         M_end = (step + 2) * M1 if step != (steps - 1) else M
         C_ = C[..., M_start:M_end, M_start:M_end]
+        
         W1, W2, B, U1 = cca_2lv(C_, M1)
+        # print(W1[0, :])
+        print(B[0, 0, 0])
+        print(W1[0,:].conj().T @ C_[0,:M1,:M1] @ W1[0,:])
+        print(W1[0,:].conj().T @ C_[0,:M1, M1:] @ W2[0,:])
+        ct = W1[0,:] * np.swapaxes(W2[0,:].conj(), -1, -2)
+        print('----')
+        W1, W2, B, U1 = semicca_2lv(C_, M1)
+        # print(W1[0, :])
+        print(B[0, 0, 0])
+        print(W1[0,:].conj().T @ C_[0,:M1,:M1] @ W1[0,:])
+        print(W1[0,:].conj().T @ C_[0,:M1, M1:] @ W2[0,:])
+        print(ct - W1[0,:] * np.swapaxes(W2[0,:].conj(), -1, -2))
+
+        print('----')
+        
+        raise
         W_list.append(W1)
-        print(np.mean(np.abs(W1[..., 0]), axis=0))
+        # print(np.mean(np.abs(W1[..., 0]), axis=0))
         if step == 0:
             U1_C_cross_old = None
             ceig1 = EMI_py(C_[...,:M1,:M1])
@@ -184,9 +240,9 @@ def test_sequential():
         else:
             B_revised = np.matmul(U1_C_cross_old, U1).real  # can be <0
             B_list.append(B_revised)
-            ceig2 = link_step_test(C_, W1, W2, B, ceig_list[-1])
-            # ceig2 = link_step(
-            #     C_[..., M1:, M1:], W1, W2, B, ceig_list[-1], method=ref_method)
+            # ceig2 = link_step_test(C_, W1, W2, B, ceig_list[-1])
+            ceig2 = link_step(
+                C_[..., M1:, M1:], W1, W2, B, ceig_list[-1], method=ref_method)
             ceig_list.append(ceig2)
         if step == steps - 1:
             B_list.append(B)
@@ -195,6 +251,7 @@ def test_sequential():
             U1_C_cross_old = np.matmul(
                 np.swapaxes(U1, -2, -1).conj(), C_[...,:M1, M1:])
     ceig = np.concatenate(ceig_list, axis=-1)
+
     # jshow = 7
     # print(np.angle(ceig)[jshow,:])
     # print(np.angle(EMI_py(C)[jshow,:]))
@@ -202,6 +259,7 @@ def test_sequential():
         cdev = cest * ctrue.conj()
         cdev /= np.abs(cdev)
         return np.mean(1 - np.real(cdev), axis=0)
+
     def bias(cest, ctrue):
         cdev = cest * ctrue.conj()
         cdev /= np.abs(cdev)
