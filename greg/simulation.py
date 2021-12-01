@@ -18,7 +18,7 @@ def circular_white_normal(size, rng=None):
 
 
 # simulate Gaussian speckle with general Sigma
-def circular_normal(size, Sigma=None, rng=None):
+def circular_normal(size, Sigma=None, rng=None, cphases=None):
     y = circular_white_normal(size, rng=rng)
     if Sigma is not None:
         assert Sigma.shape[0] == Sigma.shape[1]
@@ -26,6 +26,8 @@ def circular_normal(size, Sigma=None, rng=None):
         assert size[-1] == Sigma.shape[0]
         L = cholesky(Sigma, lower=True)
         y = np.einsum('ij,...j->...i', L, y, optimize=True)
+        if cphases is not None:
+            y = np.einsum('j, ...j->...j', cphases, y, optimize=True)
     return y
 
 
@@ -35,11 +37,9 @@ def decay_model(
     # using the Cao et al. phase convention
     Sigma = ((1 - coh_infty) * toeplitz(np.power(coh_decay, np.arange(P)))
              +coh_infty * np.ones((P, P))).astype(np.complex128)
-    if cphases is not None:
-        Sigma *= cphases[:, np.newaxis] * cphases[np.newaxis, :].conj()
     if incoh_bad is not None:
         Sigma[P // 2, P // 2] += incoh_bad
-    y = circular_normal((R, L, P), Sigma=Sigma, rng=rng)
+    y = circular_normal((R, L, P), Sigma=Sigma, rng=rng, cphases=cphases)
     return y
 
 # if __name__ == '__main__':

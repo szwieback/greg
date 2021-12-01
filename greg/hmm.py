@@ -6,7 +6,7 @@ Created on Nov 12, 2021
 
 import numpy as np
 from collections import namedtuple
-np.set_printoptions(precision=2, suppress=True)
+np.set_printoptions(precision=3, suppress=True)
 
 from linking import EMI_py
 
@@ -99,32 +99,37 @@ def semicca_2lv(C, M1, W1_prior=None, beta=1.0):
     B = np.empty((N, d, d), dtype=np.float64)
     W1 = np.empty((N, M1, d), dtype=np.complex128)
     W2 = np.empty((N, M - M1, d), dtype=np.complex128)
+    U1 = np.empty((N, M1, d), dtype=np.complex128)
+    U2 = np.empty((N, M - M1, d), dtype=np.complex128)
     _A = np.empty((M, M), dtype=np.complex128)
     _B = np.empty((M, M), dtype=np.complex128)
     from scipy.linalg import eigh
     for jp in range(N):
-        # move _A, _B construction into loop for memory reasons
         _A[:], _B[:] = 0, 0
-        _C = C[jp,:,:].copy()  # faster?
-        _A[:M1, M1:] = _C[:M1, M1:]
-        _A[M1:,:M1] = _C[M1:,:M1]
-        _B[:M1,:M1] = _C[:M1,:M1]
-        _B[M1:, M1:] = _C[M1:, M1:]
-        rho, W = eigh(
-            _A, b=_B, subset_by_index=[M - 1, M - 1],
-            driver='gvx')
-        # W1[jp, :, 0] = np.matmul(_C[:M1, :M1], W[:M1, 0]) * np.sqrt(2)
-        # W2[jp, :, 0] = np.matmul(_C[M1:, M1:], W[M1:, 0]) * np.sqrt(2)
+        _C = C[jp,:,:].copy()  # faster memory access?
+        _A[:M1, M1:] = beta * _C[:M1, M1:]
+        _A[M1:,:M1] = beta * _C[M1:,:M1]
+        _B[:M1,:M1] = beta * _C[:M1,:M1]
+        _B[M1:, M1:] = beta * _C[M1:, M1:]
+        if beta < 1 and W1_prior is not None:
+            w1 = W1_prior[jp, :, 0]
+            _A[:M1, :M1] += (1 - beta) * (
+                w1[:, np.newaxis] * w1[np.newaxis, :].conj())
+            _B[:M1, :M1] += (1 - beta) * np.eye(M1)
+        _, Q = eigh(
+            _A, b=_B, subset_by_index=[M - 1, M - 1], driver='gvx')
         _n1 = np.sqrt(
-            np.matmul(W[:M1, 0].conj().T, np.matmul(_C[:M1,:M1], W[:M1, 0]))) 
-        W1[jp,:, 0] = np.matmul(_C[:M1,:M1], W[:M1, 0]) / _n1
+            np.matmul(Q[:M1, 0].conj().T, np.matmul(_C[:M1,:M1], Q[:M1, 0]))) 
         _n2 = np.sqrt(
-            np.matmul(W[M1:, 0].conj().T, np.matmul(_C[M1:, M1:], W[M1:, 0]))) 
-        W2[jp,:, 0] = np.matmul(C[jp, M1:, M1:], W[M1:, 0]) / _n2
+            np.matmul(Q[M1:, 0].conj().T, np.matmul(_C[M1:, M1:], Q[M1:, 0]))) 
+        U1[jp, :, 0] = Q[:M1, 0] / _n1
+        U2[jp, :, 0] = Q[M1:, 0] / _n2
+        W1[jp,:, 0] = np.matmul(_C[:M1,:M1], Q[:M1, 0]) / _n1
+        W2[jp,:, 0] = np.matmul(C[jp, M1:, M1:], Q[M1:, 0]) / _n2
         rho2 = ((_n1 * _n2) ** (-1)
-            * np.matmul(W[:M1, 0].conj().T, np.matmul(_C[:M1, M1:], W[M1:, 0]))) 
-        B[jp, 0, 0] = rho2
-    return W1, W2, B, None
+            * np.matmul(Q[:M1, 0].conj().T, np.matmul(_C[:M1, M1:], Q[M1:, 0])))
+        B[jp, 0, 0] = np.real(rho2)
+    return W1, W2, B, U1
 
 
 def link_step(Cx, W1, W2, B, ceig1, method='max'):
@@ -182,26 +187,8 @@ def test():
     rho_2 = np.matmul(np.swapaxes(U1, -2, -1).conj(), np.matmul(C[...,:M1, M1:], U2)).real
 
 
-def test_sequential():
-
-    P = 12  # 32
-    M1 = 8
-    R = 250
-    d = 1
-    ref_method = 'weighted'
-    
-    from simulation import decay_model
-    rng = np.random.default_rng(seed=1)
-    cphases = np.exp(0.4j * np.arange(P))
-    # why is decay of 0.7 infty 0.2 worse than decay of 0.3, ifnty 0.2; M1=16, P=96
-    # because cca then focuses too much on the short-term signal?
-    y = decay_model(
-        P=P, L=64, R=R, coh_decay=0.6, coh_infty=0.2, cphases=cphases, rng=rng)
-    y = 3 * y
-    # todo: replace by covariance matrix
-    C = np.mean(y[..., np.newaxis] * y.conj()[..., np.newaxis,:], axis=1)
-
-    M = P
+def sequential(C, M1=8, ref_method='weighted'):
+    M = C.shape[-1]
     steps = int((M - 0.5) // M1)
     W_list = []
     B_list = []
@@ -212,22 +199,6 @@ def test_sequential():
         C_ = C[..., M_start:M_end, M_start:M_end]
         
         W1, W2, B, U1 = cca_2lv(C_, M1)
-        # print(W1[0, :])
-        print(B[0, 0, 0])
-        print(W1[0,:].conj().T @ C_[0,:M1,:M1] @ W1[0,:])
-        print(W1[0,:].conj().T @ C_[0,:M1, M1:] @ W2[0,:])
-        ct = W1[0,:] * np.swapaxes(W2[0,:].conj(), -1, -2)
-        print('----')
-        W1, W2, B, U1 = semicca_2lv(C_, M1)
-        # print(W1[0, :])
-        print(B[0, 0, 0])
-        print(W1[0,:].conj().T @ C_[0,:M1,:M1] @ W1[0,:])
-        print(W1[0,:].conj().T @ C_[0,:M1, M1:] @ W2[0,:])
-        print(ct - W1[0,:] * np.swapaxes(W2[0,:].conj(), -1, -2))
-
-        print('----')
-        
-        raise
         W_list.append(W1)
         # print(np.mean(np.abs(W1[..., 0]), axis=0))
         if step == 0:
@@ -251,35 +222,74 @@ def test_sequential():
             U1_C_cross_old = np.matmul(
                 np.swapaxes(U1, -2, -1).conj(), C_[...,:M1, M1:])
     ceig = np.concatenate(ceig_list, axis=-1)
+    return ceig
 
-    # jshow = 7
-    # print(np.angle(ceig)[jshow,:])
-    # print(np.angle(EMI_py(C)[jshow,:]))
-    def accuracy(cest, ctrue):
-        cdev = cest * ctrue.conj()
-        cdev /= np.abs(cdev)
-        return np.mean(1 - np.real(cdev), axis=0)
+def semicca_sequential(C, M1=8, ref_method='weighted', beta=1.0):
+    M = C.shape[-1]
+    steps = int((M - 0.5) // M1)
+    W2 = None
+    W_list = []
+    B_list = []
+    ceig_list = []
+    for step in range(steps):
+        M_start = step * M1
+        M_end = (step + 2) * M1 if step != (steps - 1) else M
+        C_ = C[..., M_start:M_end, M_start:M_end]
+        W1, W2, B, U1 = semicca_2lv(C_, M1, beta=beta, W1_prior=W2)
+        W_list.append(W1)
+        if step == 0:
+            U1_C_cross_old = None
+            ceig1 = EMI_py(C_[...,:M1,:M1])
+            ceig_list.append(ceig1[...,:M1])
+            ceig2 = link_step(
+                C_[..., M1:, M1:], W1, W2, B, ceig_list[-1], method=ref_method)
+            ceig_list.append(ceig2)
+        else:
+            B_revised = np.matmul(U1_C_cross_old, U1).real  # can be <0
+            B_list.append(B_revised)
+            ceig2 = link_step(
+                C_[..., M1:, M1:], W1, W2, B, ceig_list[-1], method=ref_method)
+            ceig_list.append(ceig2)
+        if step == steps - 1:
+            B_list.append(B)
+            W_list.append(W2)
+        else: 
+            U1_C_cross_old = np.matmul(
+                np.swapaxes(U1, -2, -1).conj(), C_[...,:M1, M1:])
+    ceig = np.concatenate(ceig_list, axis=-1)
+    return ceig
 
-    def bias(cest, ctrue):
-        cdev = cest * ctrue.conj()
-        cdev /= np.abs(cdev)
-        return np.mean(np.angle(cdev), axis=0)
-    # major phase linking issues to do with inplace
+def test_sequential(
+        P=90, M1=12, R=250, L=35, semicca=True, beta=0.5, 
+        coh_decay=0.8, coh_infty=0.3, rng=None, ref_method='weighted'):
+
+    from simulation import decay_model
+    if rng is None: 
+        rng = np.random.default_rng(seed=1)
+
+    cphases = np.exp(2j*np.pi*np.concatenate(([0], rng.random(P-1))))
+
+    # why is decay of 0.7 infty 0.2 worse than decay of 0.3, ifnty 0.2; M1=16, P=96
+    # because cca then focuses too much on the short-term signal?
+    y = decay_model(
+        P=P, L=L, R=R, coh_decay=coh_decay, coh_infty=coh_infty, 
+        cphases=cphases, rng=rng)
+    # todo: replace by covariance matrix
+    # for fun: actually form full C matrix
+    C = np.mean(y[..., np.newaxis] * y.conj()[..., np.newaxis,:], axis=1)
+
+    if semicca:
+        ceig = semicca_sequential(C, M1=M1, beta=beta, ref_method=ref_method)
+    else:
+        ceig = sequential(C, M1=M1)
     
-    # check signs and referencing
+
+    # major phase linking issues to do with inplace    
     cphases_bulk = EMI_py(C)
-    print(accuracy(cphases_bulk, cphases)[-1], bias(cphases_bulk, cphases)[-1])    
-    print(accuracy(ceig, cphases)[-1], bias(ceig, cphases)[-1])
-    
-    # Sigma_est = C.copy()
-    # Sigma_est[...,:M1, M1:] = np.matmul(W1, np.swapaxes(np.matmul(W2, B), -2, -1).conj())
-    # Sigma_est[..., M1:,:M1] = np.swapaxes(Sigma_est[...,:M1, M1:], -2, -1).conj()
-    # rho_2 = np.matmul(np.swapaxes(U1, -2, -1).conj(), np.matmul(C[..., :M1, M1:], U2)).real
-    #
-    #
-    # print(B[0:10].flatten())
-    # print(rho_2[0:10].flatten())
-
+    from accuracy import circular_accuracy as cacc
+    from accuracy import bias
+    print(cacc(cphases_bulk, cphases)[-1], bias(cphases_bulk, cphases)[-1])    
+    print(cacc(ceig, cphases)[-1], bias(ceig, cphases)[-1])
 
 if __name__ == '__main__': 
     test_sequential()

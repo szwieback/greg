@@ -48,7 +48,7 @@ def EMI_py(C_obs, G=None, corr=True):
     for n in range(N):
         had = C_obs[n,:,:]
         had *= np.linalg.pinv(G[n,:,:])
-        lam, ceig_n = eigh(
+        _, ceig_n = eigh(
             had, subset_by_index=[0, 0], eigvals_only=False)
         ceig[n,:] = ceig_n[:, 0] * (ceig_n[0, 0].conj() / np.abs(ceig_n[0, 0]))
     return ceig.reshape(C_shape[:-1])

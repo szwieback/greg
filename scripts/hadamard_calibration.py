@@ -6,17 +6,13 @@ Created on Oct 27, 2021
 from numpy.random import default_rng
 import numpy as np
 from scipy.optimize import minimize
-import pickle
-import zlib
 from collections import namedtuple
 import os
 
 from greg import (
-    correlation, force_doubly_nonnegative, decay_model, EMI, covariance_matrix, valid_G,
-    hadreg)
-
-# function that accumulates error over multiple sets of coh parameters
-# function that optimizes w.r.t. parameters
+    correlation, force_doubly_nonnegative, decay_model, EMI, covariance_matrix, 
+    valid_G, hadreg, enforce_directory, load_object, save_object, 
+    circular_accuracy)
 
 SimCG0 = namedtuple('SimCG0', ['C_obs', 'G0'])
 
@@ -26,27 +22,6 @@ def logit(p):
 def logistic(x):
     return (1 + np.exp(-x)) ** (-1)
 
-def enforce_directory(path):
-    if not os.path.exists(path):
-        try:
-            os.makedirs(path)
-        except:
-            pass
-
-def save_object(obj, filename):
-    enforce_directory(os.path.dirname(filename))
-    with open(filename, 'wb') as f:
-        f.write(zlib.compress(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)))
-
-def load_object(filename):
-    if os.path.splitext(filename)[1].strip() == '.npy':
-        return np.load(filename)
-    with open(filename, 'rb') as f:
-        obj = pickle.loads(zlib.decompress(f.read()))
-    return obj
-
-# add opt out option
-# function that gets phase linking results
 def accuracy_scenario(hadreglparam, data):
     if hadreglparam is not None:
         alpha, nu = logistic(hadreglparam[0]), logistic(hadreglparam[1])
@@ -60,10 +35,6 @@ def accuracy_scenario(hadreglparam, data):
         acc.append(circular_accuracy(cphases))
     return np.mean(acc)
 
-def circular_accuracy(cphases):
-    # assumes the true phases are zero
-    cphases /= np.abs(cphases)
-    return 1 - np.mean(cphases[:, 1:].real)
 
 def prepare_data(paramlist, rng=None):
     data = []
