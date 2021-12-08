@@ -22,8 +22,8 @@ def EMI(C_obs, G=None, corr=True):
         G = force_doubly_nonnegative(np.abs(C_obs).real, inplace=True)
     G = G.reshape((-1, P, P))    
     if corr:
-        G = correlation(G, inplace=True)
-        C_obs = correlation(C_obs, inplace=True)
+        G = correlation(G, inplace=False)
+        C_obs = correlation(C_obs, inplace=False)
     ceig = np.array(_EMI(C_obs, G))
     ceig *= (ceig[:, 0].conj() / np.abs(ceig[:, 0]))[:, np.newaxis]
     return ceig.reshape(C_shape[:-1])

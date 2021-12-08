@@ -38,7 +38,10 @@ def decay_model(
     Sigma = ((1 - coh_infty) * toeplitz(np.power(coh_decay, np.arange(P)))
              +coh_infty * np.ones((P, P))).astype(np.complex128)
     if incoh_bad is not None:
-        Sigma[P // 2, P // 2] += incoh_bad
+        intensity = Sigma[P // 2, P // 2]
+        Sigma[P // 2,:] *= incoh_bad
+        Sigma[:, P // 2] *= incoh_bad
+        Sigma[P // 2, P // 2] = intensity
     y = circular_normal((R, L, P), Sigma=Sigma, rng=rng, cphases=cphases)
     return y
 

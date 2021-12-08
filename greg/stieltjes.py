@@ -102,24 +102,44 @@ def _F_inv_test(x, P, ind):
 
 def _grad_cp_test(t, x, P, c, M_inv, ind):
     g = t * c
+    F_inv = _F_inv_test(x, P, ind)
     for i in range(ind.shape[1]):
-        g[i] -= t * np.trace(M_inv @ _M_i_test(i, P, ind))
-        g[i] -= np.trace(_F_inv_test(x, P, ind) @ _F_i_test(i, P, ind))
+        g[i] -= t * np.trace(np.matmul(M_inv, _M_i_test(i, P, ind)))
+        g[i] -= np.trace(
+            np.matmul(F_inv, _F_i_test(i, P, ind)))
     return g
+
+def _hess_cp_test(t, x, P, M_inv, ind):
+    N_M = ind.shape[1]
+    H = np.zeros((N_M, N_M))
+    F_inv = _F_inv_test(x, P, ind)
+    for i1 in range(N_M):
+        F_i1, M_i1 = _F_i_test(i1, P, ind), _M_i_test(i1, P, ind)
+        for i2 in range(N_M):
+            F_i2, M_i2 = _F_i_test(i2, P, ind), _M_i_test(i2, P, ind)
+            tr_F = np.trace(
+                np.matmul(np.matmul(F_inv, F_i1), np.matmul(F_inv, F_i2)))
+            tr_M = np.trace(
+                np.matmul(np.matmul(M_inv, M_i1), np.matmul(M_inv, M_i2)))
+            H[i1, i2]= t * tr_M + tr_F
+    return H
+    
 
 def _N_M(P):
     return (P * (P + 1)) // 2
 
-def M_M_inverse(x, ind, P):
+
+def M_inv_det(x, ind, P):
     M = np.zeros((P, P))
     M[ind[0, ...], ind[1, ...]] = x
     M[ind[1, P:], ind[0, P:]] = x[P:]  # little harm in also providing upper half
     from scipy.linalg import cho_factor, cho_solve
     lower = False
-    M_inv = cho_solve(
-        cho_factor(M, lower=lower, check_finite=False), np.eye(P))   
-    return M, M_inv
-    
+    cho = cho_factor(M, lower=lower, check_finite=False)
+    M_inv = cho_solve(cho, np.eye(P))
+    M_det = np.product(np.diag(cho[0]))   
+    return M, M_inv, M_det
+
 
 def indices(P):
     ind = np.zeros((2, _N_M(P)), dtype=np.uint32)
@@ -150,13 +170,12 @@ def test_newton():
     
     x0 = -b / N
     x = newton(x0, f, grad_f, hess_f, epsilon=1e-10)
-    # print(grad_f(x))
     return x
 
     
 if __name__ == '__main__':
     # test_newton()
-    P = 6
+    P = 16
     ind = indices(P)
     N_M = _N_M(P)
     
@@ -166,9 +185,21 @@ if __name__ == '__main__':
     x_0 = M_0[ind[0,:], ind[1,:]]
     
     c = np.ones((N_M))
-    M, M_inv = M_M_inverse(x_0, ind, P)
+    M, M_inv, M_det = M_inv_det(x_0, ind, P)
     
-    t = 6
+    t = 100
     x = x_0
     dg = grad_cp(t, x, P, c, M_inv, ind) - _grad_cp_test(t, x, P, c, M_inv, ind)
-    print(dg)
+    
+    def f(x):
+        try:
+            M, M_inv, M_det = M_inv_det(x, ind, P)
+            fx = np.dot(c, x) - np.log(M_det)
+            fgx = grad_cp(t, x, P, c, M_inv, ind)
+        except:
+            fx = np.infty
+            fgx = t * c
+        return fx, fgx
+    
+    
+    
