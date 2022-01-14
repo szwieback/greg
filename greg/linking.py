@@ -5,12 +5,12 @@ Created on Oct 25, 2021
 '''
 import numpy as np
 
-from preproc import (
+from greg.preproc import (
     correlation, force_doubly_nonnegative, force_doubly_nonnegative_py)
 
 
 def EMI(C_obs, G=None, corr=True):
-    from cython_greg import _EMI
+    from greg.cython_greg import _EMI
     # output magnitude not normalized
     C_shape = C_obs.shape
     if G is not None:

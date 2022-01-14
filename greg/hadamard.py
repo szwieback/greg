@@ -5,7 +5,7 @@ Created on Oct 25, 2021
 '''
 
 import numpy as np
-from preproc import force_doubly_nonnegative, correlation
+from greg.preproc import force_doubly_nonnegative, correlation, valid_G
 
 def hadreg(G, theta=(1.0,), alpha=None, nu=None, L=None):
     # G can be a Hermitian matrix or just the upper/lower half
@@ -28,7 +28,7 @@ def hadcreg(C_obs, G=None, theta=(1.0,), alpha=None, nu=None, L=None):
     if L is None and alpha is not None and nu is not None:
         theta = theta_from_alpha_nu(alpha, nu)
     if G is None:
-        G = force_doubly_nonnegative(correlation(np.abs(C_obs)))
+        G = valid_G(C_obs)
     for jtheta, thetaj in enumerate(theta):
         if thetaj < 0: raise ValueError(f"{thetaj} less than zero")
         Cr_obs += thetaj * (G ** (jtheta))

@@ -25,14 +25,18 @@ def accuracy_scenario(specregparam, data, complex_reg=False):
         beta = expit(specregparam)
     acc = []
     for simCG0 in data:
-        if specregparam is not None:
+        if specregparam is not None and complex_reg:
+            C = specreg(simCG0.C_obs, beta=beta)
+            G = valid_G(C, corr=True)
+        elif specregparam is not None and not complex_reg:
             G = specreg(simCG0.G0, beta=beta)
-            if complex_reg:
-                C = specreg(simCG0.C_obs, beta=beta)
-            else:
-                C = simCG0.C_obs
+            C = simCG0.C_obs
+        else:
+            G = simCG0.G0
+            C = simCG0.C_obs
         cphases = EMI(C, G=G, corr=False)
-        acc.append(circular_accuracy(cphases))
+        _acc = np.mean(circular_accuracy(cphases))
+        acc.append(_acc)
     return np.mean(acc)
 
 def optimize_specreg(
@@ -80,25 +84,25 @@ def calibrate_specreg(
         print(expit(res[jL]['specregparam']), res[jL]['f'], res[jL]['f_noreg'])
 
 
-def calibrate(path0):
+def calibrate(path0, njobs=-3, overwrite=False):
     looks = np.arange(3, 26, 1) ** 2
-    Ps = (30, 60, 90)
-    R = 10000
+    Ps = (30, 90)
+    R = 5000
     scenarios = {
         'broad': (None, None, None), 'low': ([0.5], [0.0], [None]),
         'high': ([0.9], [0.5], [None])}
     rnames = {True: 'G', False: 'complex'}
-    for scenario in ('high',):  # scenarios
+    for scenario in scenarios:  # scenarios
         for complex_reg in (True , False):
             pathout = os.path.join(path0, rnames[complex_reg], scenario)
             coh_decay_list, coh_infty_list, incoh_bad_list = scenarios[scenario]
             calibrate_specreg(
                 pathout, looks, Ps=Ps, R=R, coh_decay_list=coh_decay_list,
                 coh_infty_list=coh_infty_list, incoh_bad_list=incoh_bad_list,
-                complex_reg=complex_reg)
+                complex_reg=complex_reg, njobs=njobs, overwrite=overwrite)
 
 
 if __name__ == '__main__':
-    path0 = '/home2/Work/greg/spectral/'
-    calibrate(path0)
+    path0 = '/home2/Work/greg/spectral'
+    calibrate(path0, njobs=8, overwrite=False)
 

@@ -1,5 +1,5 @@
 '''
-Created on Oct 27, 2021
+Created on Dec 16, 2021
 
 @author: simon
 '''
@@ -12,24 +12,24 @@ import os
 
 from greg import (
     correlation, force_doubly_nonnegative, decay_model, EMI, covariance_matrix,
-    valid_G, hadreg, hadcreg, enforce_directory, load_object, save_object,
+    valid_G, hadreg, hadcreg, specreg, enforce_directory, load_object, save_object,
     circular_accuracy)
 
 SimCG0 = namedtuple('SimCG0', ['C_obs', 'G0'])
 
 
-def accuracy_scenario(hadreglparam, data, complex_reg=False):
-    if hadreglparam is not None:
-        alpha, nu = expit(hadreglparam[0]), expit(hadreglparam[1])
+def accuracy_scenario(hadspecreglparam, data, complex_reg=False):
+    if hadspecreglparam is not None:
+        hsr = hadspecreglparam
+        alpha, nu, beta = (expit(hsr[0]), expit(hsr[1]), expit(hsr[2]))
     acc = []
     for simCG0 in data:
-        if hadreglparam is not None:
+        if hadspecreglparam is not None:
             if not complex_reg:
-                G = hadreg(simCG0.G0, alpha=alpha, nu=nu)
+                G = hadreg(specreg(simCG0.G0, beta=beta), alpha=alpha, nu=nu)
                 C = simCG0.C_obs
             else:
-                G0 = simCG0.G0
-                C = hadcreg(simCG0.C_obs, G=G0, alpha=alpha, nu=nu)
+                C = hadcreg(specreg(simCG0.C_obs, beta=beta), alpha=alpha, nu=nu)
                 G = valid_G(C, corr=True)
         else:
             G = simCG0.G0
@@ -72,22 +72,22 @@ def default_paramlist(
     return paramlist
 
 
-def optimize_hadreg(
-        data, hadreglparam0=None, complex_reg=False, maxiter=20, gtol=1e-8):
-    if hadreglparam0 is None:
-        hadreglparam0 = np.zeros(2)
+def optimize_hadspecreg(
+        data, hadspecreglparam0=None, complex_reg=False, maxiter=30, gtol=1e-8):
+    if hadspecreglparam0 is None:
+        hadspecreglparam0 = np.zeros(3)
     f_noreg = accuracy_scenario(None, data, complex_reg=complex_reg)
 
-    def fun(hadreglparam):
-        return accuracy_scenario(hadreglparam, data, complex_reg=complex_reg)
+    def fun(hadspecreglparam):
+        return accuracy_scenario(hadspecreglparam, data, complex_reg=complex_reg)
 
     options = {'maxiter': maxiter, 'gtol': gtol}
-    res = minimize(fun, hadreglparam0, method='BFGS', options=options)
+    res = minimize(fun, hadspecreglparam0, method='BFGS', options=options)
     hadregres = {'hadreglparam': res.x, 'f': res.fun, 'f_noreg': f_noreg}
     return hadregres
 
 
-def calibrate_hadreg(
+def calibrate_hadspecreg(
         pathout, looks, seed=1, R=10000, Ps=(40,), complex_reg=False,
         coh_decay_list=None, coh_infty_list=None, incoh_bad_list=None,
         overwrite=False, njobs=8, maxiter=20):
@@ -101,7 +101,7 @@ def calibrate_hadreg(
                 L=L, R=R, Ps=Ps, coh_decay_list=coh_decay_list,
                 coh_infty_list=coh_infty_list, incoh_bad_list=incoh_bad_list)
             data = prepare_data(paramlist, rng=rng)
-            hadregres = optimize_hadreg(
+            hadregres = optimize_hadspecreg(
                 data, complex_reg=complex_reg, maxiter=maxiter)
             save_object(hadregres, fnout)
         else:
@@ -129,12 +129,12 @@ def calibrate(path0, njobs=-4, overwrite=False):
         for complex_reg in (True , False):
             pathout = os.path.join(path0, rnames[complex_reg], scenario)
             coh_decay_list, coh_infty_list, incoh_bad_list = scenarios[scenario]
-            calibrate_hadreg(
+            calibrate_hadspecreg(
                 pathout, looks, Ps=Ps, R=R, coh_decay_list=coh_decay_list,
                 coh_infty_list=coh_infty_list, incoh_bad_list=incoh_bad_list,
                 complex_reg=complex_reg, njobs=njobs, overwrite=overwrite)
 
 if __name__ == '__main__':
-    path0 = '/home2/Work/greg/hadamard'
+    path0 = '/home2/Work/greg/hadspec'
     calibrate(path0, njobs=8, overwrite=False)
 

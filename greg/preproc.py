@@ -9,7 +9,7 @@ import numpy as np
 import pyximport; pyximport.install()
 
 def covariance_matrix(y):
-    from cython_greg import covm
+    from greg.cython_greg import covm
     y_shape = y.shape
     L = y_shape[-2]
     P = y_shape[-1]
@@ -34,7 +34,7 @@ def correlation(G_raw, inplace=False):
 def force_doubly_nonnegative(G_raw, min_eig=0.0, inplace=False):
     # G_raw needs to be nonnegative P, P to begin with
     # adds a multiple of the identity so that the minimum eigenvalue is min_eig
-    from cython_greg import fdd
+    from greg.cython_greg import fdd
     G_shape = G_raw.shape
     P = G_shape[-1]
     if G_shape[-2] != P: raise ValueError('G needs to be square')
