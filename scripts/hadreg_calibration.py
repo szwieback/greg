@@ -25,15 +25,15 @@ def accuracy_scenario(hadreglparam, data, complex_reg=False):
     for simCG0 in data:
         if hadreglparam is not None:
             if not complex_reg:
-                G = hadreg(simCG0.G0, alpha=alpha, nu=nu)
-                C = simCG0.C_obs
+                G = hadreg(simCG0.G0.copy(), alpha=alpha, nu=nu)
+                C = simCG0.C_obs.copy()
             else:
-                G0 = simCG0.G0
+                G0 = simCG0.G0.copy()
                 C = hadcreg(simCG0.C_obs, G=G0, alpha=alpha, nu=nu)
                 G = valid_G(C, corr=True)
         else:
-            G = simCG0.G0
-            C = simCG0.C_obs
+            G = simCG0.G0.copy()
+            C = simCG0.C_obs.copy()
         cphases = EMI(C, G=G, corr=False)
         _acc = np.mean(circular_accuracy(cphases))
         acc.append(_acc)
@@ -55,7 +55,7 @@ def default_paramlist(
     params0 = {
         'R': R, 'L': L, 'P': 1}
     if coh_decay_list is None: coh_decay_list = [0.5, 0.9]
-    if coh_infty_list is None: coh_infty_list = [0.0, 0.1, 0.3, 0.5]
+    if coh_infty_list is None: coh_infty_list = [0.1, 0.3, 0.5]
     if incoh_bad_list is None: incoh_bad_list = [None, 0.0]
     paramlist = []
     for coh_decay in coh_decay_list:
@@ -118,9 +118,9 @@ def calibrate_hadreg(
 
 
 def calibrate(path0, njobs=-4, overwrite=False):
-    looks = np.arange(3, 26, 1) ** 2
-    Ps = (30, 90)
-    R = 5000
+    looks = np.arange(3, 20, 1) ** 2
+    Ps = (30, 60)
+    R = 10000
     scenarios = {
         'broad': (None, None, None), 'low': ([0.5], [0.0], [None]),
         'high': ([0.9], [0.5], [None])}

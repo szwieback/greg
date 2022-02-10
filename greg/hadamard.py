@@ -23,15 +23,17 @@ def hadreg(G, theta=(1.0,), alpha=None, nu=None, L=None):
 def hadcreg(C_obs, G=None, theta=(1.0,), alpha=None, nu=None, L=None):
     # G can be a Hermitian matrix or just the upper/lower half
     Cr_obs = C_obs.copy()
+    hadm = Cr_obs.copy()
     if L is not None and theta is None and (alpha is None or nu is None):
         raise NotImplementedError
     if L is None and alpha is not None and nu is not None:
         theta = theta_from_alpha_nu(alpha, nu)
     if G is None:
-        G = valid_G(C_obs)
+        G = valid_G(Cr_obs)
     for jtheta, thetaj in enumerate(theta):
         if thetaj < 0: raise ValueError(f"{thetaj} less than zero")
-        Cr_obs += thetaj * (G ** (jtheta))
+        hadm  += thetaj * (G ** (jtheta))
+    Cr_obs *= hadm
     return Cr_obs
 
 def theta_from_alpha_nu(alpha, nu):
