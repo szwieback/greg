@@ -8,6 +8,9 @@ import numpy as np
 
 import pyximport; pyximport.install()
 
+paramorder = {
+    'hadamard': ('alpha', 'nu'), 'spectral': ('beta',), 'hadspec': ('alpha', 'nu', 'beta')}
+
 def covariance_matrix(y):
     from greg.cython_greg import covm
     y_shape = y.shape
@@ -68,5 +71,21 @@ def valid_G(C_obs, corr=True):
     G = force_doubly_nonnegative(np.abs(C_obs))
     if corr:
         G = correlation(G, inplace=True)
+    return G
+
+def regularize_G(G0, rtype, **kwargs):
+    from hadamard import hadreg, hadspecreg
+    from spectral import specreg
+    if rtype != 'none': params = {x: kwargs[x] for x in paramorder[rtype]}
+    if rtype == 'hadamard':
+        G = hadreg(G0.copy(), **params)
+    elif rtype == 'spectral':
+        G = specreg(G0.copy(), **params)
+    elif rtype == 'hadspec':
+        G = hadspecreg(G0.copy(), **params)
+    elif rtype == 'none':
+        G = G0.copy()
+    else:
+        raise ValueError(f'Regularization type {rtype} not recognized')
     return G
 

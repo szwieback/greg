@@ -26,14 +26,14 @@ def accuracy_scenario(hadspecreglparam, data, complex_reg=False):
     for simCG0 in data:
         if hadspecreglparam is not None:
             if not complex_reg:
-                G = hadreg(specreg(simCG0.G0, beta=beta), alpha=alpha, nu=nu)
-                C = simCG0.C_obs
+                G = hadreg(specreg(simCG0.G0.copy(), beta=beta), alpha=alpha, nu=nu)
+                C = simCG0.C_obs.copy()
             else:
-                C = hadcreg(specreg(simCG0.C_obs, beta=beta), alpha=alpha, nu=nu)
+                C = hadcreg(specreg(simCG0.C_obs.copy(), beta=beta), alpha=alpha, nu=nu)
                 G = valid_G(C, corr=True)
         else:
-            G = simCG0.G0
-            C = simCG0.C_obs
+            G = simCG0.G0.copy()
+            C = simCG0.C_obs.copy()
         cphases = EMI(C, G=G, corr=False)
         _acc = np.mean(circular_accuracy(cphases))
         acc.append(_acc)
@@ -55,7 +55,7 @@ def default_paramlist(
     params0 = {
         'R': R, 'L': L, 'P': 1}
     if coh_decay_list is None: coh_decay_list = [0.5, 0.9]
-    if coh_infty_list is None: coh_infty_list = [0.0, 0.1, 0.3, 0.5]
+    if coh_infty_list is None: coh_infty_list = [0.0, 0.2, 0.4]
     if incoh_bad_list is None: incoh_bad_list = [None, 0.0]
     paramlist = []
     for coh_decay in coh_decay_list:
@@ -83,7 +83,7 @@ def optimize_hadspecreg(
 
     options = {'maxiter': maxiter, 'gtol': gtol}
     res = minimize(fun, hadspecreglparam0, method='BFGS', options=options)
-    hadregres = {'hadreglparam': res.x, 'f': res.fun, 'f_noreg': f_noreg}
+    hadregres = {'hadspecreglparam': res.x, 'f': res.fun, 'f_noreg': f_noreg}
     return hadregres
 
 
@@ -114,16 +114,15 @@ def calibrate_hadspecreg(
     res = Parallel(n_jobs=njobs)(delayed(_calibrate_hadreg)(L) for L in looks)
     for jL, L in enumerate(looks):
         print(L)
-        print(expit(res[jL]['hadreglparam']), res[jL]['f'], res[jL]['f_noreg'])
+        print(expit(res[jL]['hadspecreglparam']), res[jL]['f'], res[jL]['f_noreg'])
 
 
 def calibrate(path0, njobs=-4, overwrite=False):
-    looks = np.arange(3, 26, 1) ** 2
-    Ps = (30, 90)
+    looks = np.arange(4, 21, 1) ** 2
+    Ps = (30, 60)
     R = 5000
     scenarios = {
-        'broad': (None, None, None), 'low': ([0.5], [0.0], [None]),
-        'high': ([0.9], [0.5], [None])}
+        'broad': (None, None, [None]), 'low': ([0.5], [0.0], [None])}
     rnames = {True: 'G', False: 'complex'}
     for scenario in scenarios:
         for complex_reg in (True , False):
@@ -136,5 +135,5 @@ def calibrate(path0, njobs=-4, overwrite=False):
 
 if __name__ == '__main__':
     path0 = '/home2/Work/greg/hadspec'
-    calibrate(path0, njobs=8, overwrite=False)
+    calibrate(path0, njobs=9, overwrite=False)
 

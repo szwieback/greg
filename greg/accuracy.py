@@ -10,7 +10,7 @@ def _cdeviation(cest, ctrue=None):
     if ctrue is not None:
         cdev = cest * ctrue.conj()
     else:
-        cdev = cest
+        cdev = cest.copy()
     cdev /= np.abs(cdev)
     return cdev
 

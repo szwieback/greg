@@ -26,14 +26,14 @@ def accuracy_scenario(specregparam, data, complex_reg=False):
     acc = []
     for simCG0 in data:
         if specregparam is not None and complex_reg:
-            C = specreg(simCG0.C_obs, beta=beta)
-            G = valid_G(C, corr=True)
+            C = specreg(simCG0.C_obs.copy(), beta=beta)
+            G = valid_G(C.copy(), corr=True)
         elif specregparam is not None and not complex_reg:
-            G = specreg(simCG0.G0, beta=beta)
-            C = simCG0.C_obs
+            G = specreg(simCG0.G0.copy(), beta=beta)
+            C = simCG0.C_obs.copy()
         else:
-            G = simCG0.G0
-            C = simCG0.C_obs
+            G = simCG0.G0.copy()
+            C = simCG0.C_obs.copy()
         cphases = EMI(C, G=G, corr=False)
         _acc = np.mean(circular_accuracy(cphases))
         acc.append(_acc)
@@ -85,12 +85,11 @@ def calibrate_specreg(
 
 
 def calibrate(path0, njobs=-3, overwrite=False):
-    looks = np.arange(3, 26, 1) ** 2
-    Ps = (30, 90)
+    looks = np.arange(4, 21, 1) ** 2
+    Ps = (30, 60)
     R = 5000
     scenarios = {
-        'broad': (None, None, None), 'low': ([0.5], [0.0], [None]),
-        'high': ([0.9], [0.5], [None])}
+        'broad': (None, None, [None]), 'low': ([0.5], [0.0], [None])}
     rnames = {True: 'G', False: 'complex'}
     for scenario in scenarios:  # scenarios
         for complex_reg in (True , False):
@@ -104,5 +103,5 @@ def calibrate(path0, njobs=-3, overwrite=False):
 
 if __name__ == '__main__':
     path0 = '/home2/Work/greg/spectral'
-    calibrate(path0, njobs=8, overwrite=False)
+    calibrate(path0, njobs=9, overwrite=True)
 

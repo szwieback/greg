@@ -20,6 +20,13 @@ def hadreg(G, theta=(1.0,), alpha=None, nu=None, L=None):
         G_out += thetaj * (G ** (jtheta + 1))
     return G_out
 
+def hadspecreg(G, alpha=None, nu=None, beta=None, L=None):
+    from spectral import specreg
+    if L is not None and (alpha is None or nu is None or beta is None):
+        raise NotImplementedError
+    G_out = hadreg(specreg(G, beta=beta), alpha=alpha, nu=nu)
+    return G_out
+
 def hadcreg(C_obs, G=None, theta=(1.0,), alpha=None, nu=None, L=None):
     # G can be a Hermitian matrix or just the upper/lower half
     Cr_obs = C_obs.copy()

@@ -17,6 +17,8 @@ from greg import (
 
 SimCG0 = namedtuple('SimCG0', ['C_obs', 'G0'])
 
+# def expit(x):
+#     return 1 / (1 + np.exp(-x))
 
 def accuracy_scenario(hadreglparam, data, complex_reg=False):
     if hadreglparam is not None:
@@ -28,8 +30,7 @@ def accuracy_scenario(hadreglparam, data, complex_reg=False):
                 G = hadreg(simCG0.G0.copy(), alpha=alpha, nu=nu)
                 C = simCG0.C_obs.copy()
             else:
-                G0 = simCG0.G0.copy()
-                C = hadcreg(simCG0.C_obs, G=G0, alpha=alpha, nu=nu)
+                C = hadcreg(simCG0.C_obs.copy(), G=simCG0.G0.copy(), alpha=alpha, nu=nu)
                 G = valid_G(C, corr=True)
         else:
             G = simCG0.G0.copy()
@@ -39,7 +40,6 @@ def accuracy_scenario(hadreglparam, data, complex_reg=False):
         acc.append(_acc)
     return np.mean(acc)
 
-
 def prepare_data(paramlist, rng=None):
     data = []
     for params in paramlist:
@@ -48,14 +48,13 @@ def prepare_data(paramlist, rng=None):
         data.append(SimCG0(C_obs=C_obs, G0=G0))
     return data
 
-
 def default_paramlist(
         L=100, R=5000, Ps=(40,), coh_decay_list=None, coh_infty_list=None,
         incoh_bad_list=None):
     params0 = {
         'R': R, 'L': L, 'P': 1}
     if coh_decay_list is None: coh_decay_list = [0.5, 0.9]
-    if coh_infty_list is None: coh_infty_list = [0.1, 0.3, 0.5]
+    if coh_infty_list is None: coh_infty_list = [0.0, 0.2, 0.4]
     if incoh_bad_list is None: incoh_bad_list = [None, 0.0]
     paramlist = []
     for coh_decay in coh_decay_list:
@@ -71,7 +70,6 @@ def default_paramlist(
                     paramlist.append(params)
     return paramlist
 
-
 def optimize_hadreg(
         data, hadreglparam0=None, complex_reg=False, maxiter=20, gtol=1e-8):
     if hadreglparam0 is None:
@@ -85,7 +83,6 @@ def optimize_hadreg(
     res = minimize(fun, hadreglparam0, method='BFGS', options=options)
     hadregres = {'hadreglparam': res.x, 'f': res.fun, 'f_noreg': f_noreg}
     return hadregres
-
 
 def calibrate_hadreg(
         pathout, looks, seed=1, R=10000, Ps=(40,), complex_reg=False,
@@ -116,14 +113,12 @@ def calibrate_hadreg(
         print(L)
         print(expit(res[jL]['hadreglparam']), res[jL]['f'], res[jL]['f_noreg'])
 
-
 def calibrate(path0, njobs=-4, overwrite=False):
-    looks = np.arange(3, 20, 1) ** 2
+    looks = np.arange(4, 21, 1) ** 2
     Ps = (30, 60)
-    R = 10000
+    R = 5000
     scenarios = {
-        'broad': (None, None, None), 'low': ([0.5], [0.0], [None]),
-        'high': ([0.9], [0.5], [None])}
+        'broad': (None, None, [None]), 'low': ([0.5], [0.0], [None])}
     rnames = {True: 'G', False: 'complex'}
     for scenario in scenarios:
         for complex_reg in (True , False):
@@ -136,5 +131,7 @@ def calibrate(path0, njobs=-4, overwrite=False):
 
 if __name__ == '__main__':
     path0 = '/home2/Work/greg/hadamard'
-    calibrate(path0, njobs=8, overwrite=False)
+    calibrate(path0, njobs=9, overwrite=False)
+#     path0 = '/home/simon/Work/greg/test'
+#     calibrate(path0, njobs=4, overwrite=True)
 
