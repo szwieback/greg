@@ -14,8 +14,7 @@ from itertools import product as cartprod
 from greg import (
     correlation, force_doubly_nonnegative, decay_model, EMI, covariance_matrix,
     valid_G, regularize_G, enforce_directory, load_object, save_object,
-    circular_accuracy)
-from L_parameterization import read_parameters
+    circular_accuracy, read_parameters)
 
 rtypes_def = ['hadamard', 'spectral', 'hadspec', 'none']
 
@@ -91,9 +90,9 @@ def plot_synthetic(acc, fnfig):
     plt.savefig(fnfig)
 
 if __name__ == '__main__':
-    path0 = '/home/simon/Work/greg'
+    path0 = '/home/simon/Work/greg/parameters'
     L = 40
-    params_rtypes = {rtype: read_parameters(L, path0, rtype=rtype) for rtype in rtypes_def}
+    params_rtypes = {rtype: read_parameters(L, pathp, rtype=rtype) for rtype in rtypes_def}
 
     coh_decay_t = (0.3, 0.6, 0.9)
     coh_infty_t = tuple(np.linspace(0.0, 0.95, num=20))

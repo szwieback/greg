@@ -64,7 +64,7 @@ def force_doubly_nonnegative_py(G_raw, min_eig=0.0):
             G_raw[n, :, :], subset_by_index=[0, 0], eigvals_only=True)
         negshift = lam[0] - min_eig
         if negshift < 0:
-            G_out[n, ...] -= negshift * np.eye(P) 
+            G_out[n, ...] -= negshift * np.eye(P)
     return G_out.reshape(G_shape)
 
 def valid_G(C_obs, corr=True):
@@ -74,8 +74,8 @@ def valid_G(C_obs, corr=True):
     return G
 
 def regularize_G(G0, rtype, **kwargs):
-    from hadamard import hadreg, hadspecreg
-    from spectral import specreg
+    from greg.hadamard import hadreg, hadspecreg
+    from greg.spectral import specreg
     if rtype != 'none': params = {x: kwargs[x] for x in paramorder[rtype]}
     if rtype == 'hadamard':
         G = hadreg(G0.copy(), **params)
@@ -87,5 +87,23 @@ def regularize_G(G0, rtype, **kwargs):
         G = G0.copy()
     else:
         raise ValueError(f'Regularization type {rtype} not recognized')
+    return G
+
+def vectorize_G(G):
+    # ..., P, P to ..., P * (P + 1) / 2
+    P = G.shape[-1]
+    assert G.shape[-2] == P
+    ind = np.tril_indices(P)
+    ind_ = (slice(None),) * (len(G.shape) - 2) + ind
+    G_vec = G[ind_]
+    return G_vec
+
+def assemble_G(G_vec):
+    P = int(-0.5 + np.sqrt(0.25 + 2 * G_vec.shape[-1]))
+    ind = np.tril_indices(P)
+    G = np.zeros(tuple(G_vec.shape[:-1]) + (P, P), dtype=G_vec.dtype)
+    G[(slice(None),) * (len(G_vec.shape) - 1) + ind] = G_vec
+    G[(slice(None),) * (len(G_vec.shape) - 1) + (np.arange(P, dtype=np.int64),)*2] = 0
+    G[(slice(None),) * (len(G_vec.shape) - 1) + (ind[1], ind[0])] += G_vec
     return G
 

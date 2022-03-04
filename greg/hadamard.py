@@ -21,7 +21,7 @@ def hadreg(G, theta=(1.0,), alpha=None, nu=None, L=None):
     return G_out
 
 def hadspecreg(G, alpha=None, nu=None, beta=None, L=None):
-    from spectral import specreg
+    from greg.spectral import specreg
     if L is not None and (alpha is None or nu is None or beta is None):
         raise NotImplementedError
     G_out = hadreg(specreg(G, beta=beta), alpha=alpha, nu=nu)

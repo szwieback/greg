@@ -28,3 +28,16 @@ def load_object(filename):
     with open(filename, 'rb') as f:
         obj = pickle.loads(zlib.decompress(f.read()))
     return obj
+
+def read_parameters(L, pathp, rtype='hadamard', rmatrix='G'):
+    if rmatrix != 'G': raise NotImplementedError('Only G regularization')
+    if rtype == 'none':
+        return {}
+    else:
+        parmdict = load_object(os.path.join(pathp, f'{rtype}.p'))
+        L_ = int(L)
+        ind = np.nonzero(L_ == parmdict['looks'])[0]
+        if len(ind) != 1:
+            raise ValueError(f"Number of looks {L_} not supported")
+        vals = parmdict['params'][:, ind[0]]
+        return dict(zip(parmdict['names'], vals))

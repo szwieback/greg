@@ -6,7 +6,7 @@ Created on Feb 10, 2022
 import os
 import numpy as np
 
-from greg import load_object, save_object, paramorder
+from greg import load_object, save_object, paramorder, read_parameters
 from scipy.special import expit
 
 paramnames = {
@@ -98,21 +98,10 @@ def plot_parameter_fit(path0):
         transform=axs[0].transAxes)
     plt.savefig(os.path.join(path0, 'figures', 'parameters.pdf'))
 
-def read_parameters(L, path0, rtype='hadamard', rmatrix='G'):
-    if rmatrix != 'G': raise NotImplementedError('Only G regularization')
-    if rtype == 'none':
-        return {}
-    else:
-        parmdict = load_object(os.path.join(path0, 'parameters', f'{rtype}.p'))
-        L_ = int(L)
-        ind = np.nonzero(L_ == parmdict['looks'])[0]
-        if len(ind) != 1:
-            raise ValueError(f"Number of looks {L_} not supported")
-        vals = parmdict['params'][:, ind[0]]
-        return dict(zip(parmdict['names'], vals))
+
 
 if __name__ == '__main__':
     path0 = '/home/simon/Work/greg'
 #     export_parameters(path0)
-#     print(read_parameters(40, path0))
-    plot_parameter_fit(path0)
+    print(read_parameters(65, os.path.join(path0, 'parameters'), rtype='hadspec'))
+#     plot_parameter_fit(path0)
