@@ -14,12 +14,12 @@ def _cdeviation(cest, ctrue=None):
     cdev /= np.abs(cdev)
     return cdev
 
-def circular_accuracy(cest, ctrue=None):
+def circular_accuracy(cest, ctrue=None, axis=0):
     cdev = _cdeviation(cest, ctrue=ctrue)
-    acc = np.mean(1 - np.real(cdev), axis=0)
+    acc = np.mean(1 - np.real(cdev), axis=axis)
     return acc
 
-def bias(cest, ctrue=None):
+def bias(cest, ctrue=None, axis=0):
     cdev = _cdeviation(cest, ctrue=ctrue)
-    bias = np.angle(np.mean(cdev, axis=0))
+    bias = np.angle(np.mean(cdev, axis=axis))
     return bias

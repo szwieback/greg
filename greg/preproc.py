@@ -19,6 +19,11 @@ def covariance_matrix(y):
     C_obs = covm(y.reshape((-1, L, P)))
     return C_obs.reshape((y_shape[:-2]) + (P, P))
 
+def diagonal(A):
+    assert A.shape[-1] == A.shape[-2]
+    d = np.diagonal(A, axis1=-2, axis2=-1)
+    return d.copy()
+
 def correlation(G_raw, inplace=False):
     # G_raw: Hermitian, [..., P, P]
     if inplace:
