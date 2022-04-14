@@ -79,7 +79,7 @@ def plot_synthetic(acc, fnfig):
             0.50, 1.04, labels[rtype], transform=axs[jrtype].transAxes, 
             ha='center', va='baseline', c='k')
     axs[0].text(
-        -0.45, 0.50, 'accuracy RD [\%]', transform=axs[0].transAxes, rotation=90,
+        -0.45, 0.50, 'dispersion RD [\%]', transform=axs[0].transAxes, rotation=90,
         ha='right', va='center')
     axs[2].legend(
         loc=7, bbox_to_anchor=(1.1, 0.45), frameon=False, title='$\\gamma_0$ [-]', 
