@@ -90,7 +90,8 @@ def plot_synthetic(acc, fnfig):
     plt.savefig(fnfig)
 
 if __name__ == '__main__':
-    path0 = '/home/simon/Work/greg/parameters'
+    path0 = '/home/simon/Work/greg/'
+    pathp = os.path.join(path0, 'parameters')
     L = 40
     params_rtypes = {rtype: read_parameters(L, pathp, rtype=rtype) for rtype in rtypes_def}
 
