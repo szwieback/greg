@@ -99,3 +99,4 @@ ENV/
 
 # python path script
 .pythonpath
+.pyc

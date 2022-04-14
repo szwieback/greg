@@ -94,7 +94,7 @@ def regularize_G(G0, rtype, **kwargs):
         raise ValueError(f'Regularization type {rtype} not recognized')
     return G
 
-def vectorize_G(G):
+def vectorize_tril(G):
     # ..., P, P to ..., P * (P + 1) / 2
     P = G.shape[-1]
     assert G.shape[-2] == P
@@ -103,7 +103,7 @@ def vectorize_G(G):
     G_vec = G[ind_]
     return G_vec
 
-def assemble_G(G_vec):
+def assemble_tril(G_vec):
     P = int(-0.5 + np.sqrt(0.25 + 2 * G_vec.shape[-1]))
     ind = np.tril_indices(P)
     G = np.zeros(tuple(G_vec.shape[:-1]) + (P, P), dtype=G_vec.dtype)

@@ -46,4 +46,3 @@ def phases_covariance(G=None, C_obs=None, L=None, method='expected_partial'):
     C = C.reshape(shape[:-2] + C.shape[-2:])
     return C
 
-
