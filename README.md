@@ -14,7 +14,7 @@ Python 3.8 with FVEH and compatible numpy, scipy and Cython.
 
 ## Contact
 
-[Simon Zwieback](szwieback.github.io)
+[Simon Zwieback](https://szwieback.github.io)
 
 Feedback, ideas and contributions are greatly appreciated.
 
