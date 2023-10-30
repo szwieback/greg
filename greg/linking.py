@@ -66,17 +66,19 @@ def EVD_py(C_obs, G=None, corr=True):
     if C_shape[-2] != P:
         raise ValueError('G needs to be square')
     C_obs = C_obs.reshape((-1, P, P))
-    if G is None:
-        C_shape
-        G = force_doubly_nonnegative_py(np.abs(C_obs).real)
-    G = G.reshape((-1, P, P))
     N = G.shape[0]
     if corr:
-        G = correlation(G, inplace=False)
         C_obs = correlation(C_obs, inplace=False)
     ceig = np.empty((N, P), dtype=np.complex128)
+    if G is None:
+        _C_obs = C_obs
+    else:
+        G = G.reshape((-1, P, P))
+        if corr:
+            G = correlation(G, inplace=False)
+        _C_obs = C_obs / np.abs(C_obs) * G # do not mess with negative eigenvalues
     for n in range(N): # needs cython port
-        _, ceig_n = eigh(C_obs[n, :, :], subset_by_index=[
+        _, ceig_n = eigh(_C_obs[n, :, :], subset_by_index=[
                          P-1, P-1], eigvals_only=False)
         ceig[n, :] = ceig_n[:, 0] * (
             ceig_n[0, 0].conj() / np.abs(ceig_n[0, 0]))
