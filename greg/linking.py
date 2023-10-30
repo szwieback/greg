@@ -75,11 +75,11 @@ def EVD_py(C_obs, G=None, corr=True):
         G = correlation(G, inplace=False)
         C_obs = correlation(C_obs, inplace=False)
     ceig = np.empty((N, P), dtype=np.complex128)
-    for n in range(N):
+    for n in range(N): # needs cython port
         _, ceig_n = eigh(C_obs[n, :, :], subset_by_index=[
                          P-1, P-1], eigvals_only=False)
-        ceig[n, :] = ceig_n[:, 0] * \
-            (ceig_n[0, 0].conj() / np.abs(ceig_n[0, 0]))
+        ceig[n, :] = ceig_n[:, 0] * (
+            ceig_n[0, 0].conj() / np.abs(ceig_n[0, 0]))
     return ceig.reshape(C_shape[:-1])
 
 
