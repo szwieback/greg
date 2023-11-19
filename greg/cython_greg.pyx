@@ -75,7 +75,6 @@ def fdd(double[:, :, :] G_raw, double[:, :, :] G_out, double min_eig=0.0):
 def _EMI(double complex[:, :, :] C_obs, double[:, :, :] G):
     # G_raw needs to be nonnegative of size N, P, P and single precision
     # adds a multiple of the identity so that the minimum eigenvalue is min_eig
- 
     assert G.shape[1] == G.shape[2]
 #     assert C_obs.shape == G.shape
     cdef Py_ssize_t N = G.shape[0]
@@ -100,5 +99,27 @@ def _EMI(double complex[:, :, :] C_obs, double[:, :, :] G):
         M1 *= M2
         # may need to call lapack directly
         lam, ceig_n_view = eigh(M1, subset_by_index=[0, 0], eigvals_only=False)
+        ceig_view[n, :] = ceig_n_view[:, 0]
+    return ceig_view
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def _EVD(double complex[:, :, :] C_obs): 
+    assert C_obs.shape[1] == C_obs.shape[2]
+    cdef Py_ssize_t N = C_obs.shape[0]
+    cdef Py_ssize_t P = C_obs.shape[1]
+ 
+    cdef Py_ssize_t n, p1, p2
+ 
+    ceig = np.empty((N, P), dtype=np.complex128)
+    cdef double complex [:, :] ceig_view = ceig
+    ceig_n = np.empty((P, 1), dtype=np.complex128)
+    cdef double complex [:, :] ceig_n_view = ceig_n
+    lam = np.ones(1, dtype=np.double)
+    cdef double [:] lam_view = lam
+    
+    for n in range(N):
+        # may need to call lapack directly
+        lam, ceig_n_view = eigh(C_obs[n, :, :], subset_by_index=[P-1, P-1], eigvals_only=False)
         ceig_view[n, :] = ceig_n_view[:, 0]
     return ceig_view
