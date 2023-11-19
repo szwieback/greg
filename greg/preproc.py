@@ -94,21 +94,22 @@ def regularize_G(G0, rtype, **kwargs):
         raise ValueError(f'Regularization type {rtype} not recognized')
     return G
 
-def vectorize_tril(G):
+def vectorize_tril(G, lower=True):
     # ..., P, P to ..., P * (P + 1) / 2
     P = G.shape[-1]
     assert G.shape[-2] == P
-    ind = np.tril_indices(P)
+    ind = np.tril_indices(P) if lower else np.triu_indices(P)
     ind_ = (slice(None),) * (len(G.shape) - 2) + ind
     G_vec = G[ind_]
     return G_vec
 
-def assemble_tril(G_vec):
+def assemble_tril(G_vec, lower=True):
     P = int(-0.5 + np.sqrt(0.25 + 2 * G_vec.shape[-1]))
-    ind = np.tril_indices(P)
+    assert (P * (P+1)) // 2 == G_vec.shape[-1]
+    ind = np.tril_indices(P) if lower else np.triu_indices(P)
     G = np.zeros(tuple(G_vec.shape[:-1]) + (P, P), dtype=G_vec.dtype)
     G[(slice(None),) * (len(G_vec.shape) - 1) + ind] = G_vec
     G[(slice(None),) * (len(G_vec.shape) - 1) + (np.arange(P, dtype=np.int64),)*2] = 0
-    G[(slice(None),) * (len(G_vec.shape) - 1) + (ind[1], ind[0])] += G_vec
+    G[(slice(None),) * (len(G_vec.shape) - 1) + (ind[1], ind[0])] += G_vec.conj()
     return G
 
