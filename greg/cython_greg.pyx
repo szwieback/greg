@@ -76,7 +76,6 @@ def _EMI(double complex[:, :, :] C_obs, double[:, :, :] G):
     # G_raw needs to be nonnegative of size N, P, P and single precision
     # adds a multiple of the identity so that the minimum eigenvalue is min_eig
     assert G.shape[1] == G.shape[2]
-#     assert C_obs.shape == G.shape
     cdef Py_ssize_t N = G.shape[0]
     cdef Py_ssize_t P = G.shape[1]
  
@@ -93,11 +92,11 @@ def _EMI(double complex[:, :, :] C_obs, double[:, :, :] G):
     cdef double [:] lam_view = lam
     
     for n in range(N):
-        # may need to call lapack directly
+        # need to call lapack directly
         M1[:, :] = np.linalg.pinv(G[n, :, :])
         M2[:, :] = C_obs[n, :, :]            
         M1 *= M2
-        # may need to call lapack directly
+        # need to call lapack directly
         lam, ceig_n_view = eigh(M1, subset_by_index=[0, 0], eigvals_only=False)
         ceig_view[n, :] = ceig_n_view[:, 0]
     return ceig_view
@@ -119,7 +118,7 @@ def _EVD(double complex[:, :, :] C_obs):
     cdef double [:] lam_view = lam
     
     for n in range(N):
-        # may need to call lapack directly
+        # need to call lapack directly
         lam, ceig_n_view = eigh(C_obs[n, :, :], subset_by_index=[P-1, P-1], eigvals_only=False)
         ceig_view[n, :] = ceig_n_view[:, 0]
     return ceig_view

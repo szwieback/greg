@@ -102,8 +102,11 @@ def EVD(C_obs, G=None, corr=True):
         if corr:
             G = correlation(G, inplace=False)    
         _C_obs = C_obs / np.abs(C_obs) * G
+    invalid = np.any(np.logical_not(np.isfinite(_C_obs)), axis=(1, 2))
+    _C_obs[invalid, ...] = 1
     ceig = np.array(_EVD(_C_obs))
     ceig *= np.conj(ceig[:, 0] / np.abs(ceig[:, 0]))[:, np.newaxis]
+    ceig[invalid, ...] = np.nan  
     return ceig.reshape(C_shape[:-1])
 
 
