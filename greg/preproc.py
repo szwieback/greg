@@ -103,9 +103,13 @@ def vectorize_tril(G, lower=True):
     G_vec = G[ind_]
     return G_vec
 
+def extract_P(N_vec):
+    P = int(-0.5 + np.sqrt(0.25 + 2 * N_vec))    
+    assert (P * (P+1)) // 2 == N_vec
+    return P
+
 def assemble_tril(G_vec, lower=True):
-    P = int(-0.5 + np.sqrt(0.25 + 2 * G_vec.shape[-1]))
-    assert (P * (P+1)) // 2 == G_vec.shape[-1]
+    P = extract_P(G_vec.shape[-1])
     ind = np.tril_indices(P) if lower else np.triu_indices(P)
     G = np.zeros(tuple(G_vec.shape[:-1]) + (P, P), dtype=G_vec.dtype)
     G[(slice(None),) * (len(G_vec.shape) - 1) + ind] = G_vec

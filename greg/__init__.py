@@ -5,7 +5,7 @@ Created on Oct 27, 2021
 '''
 from greg.preproc import (
     correlation, force_doubly_nonnegative, covariance_matrix, valid_G, regularize_G,
-    paramorder, vectorize_tril, assemble_tril, diagonal)
+    paramorder, vectorize_tril, assemble_tril, diagonal, extract_P)
 from greg.simulation import circular_normal, decay_model
 from greg.linking import EMI, EVD, EVD_py, EMI_py
 from greg.hadamard import hadreg, hadcreg, hadspecreg
