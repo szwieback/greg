@@ -158,9 +158,15 @@ def C_phase_history(G, cphases, L=30, C_obs=None, normalize=True, method='full')
     cphases_norm = cphases / np.abs(cphases) if normalize else cphases
     if 'full' in method:
         if method == 'full':
+            from greg.cython_greg import _FI_magnitude
+            FGG, FGt = _FI_magnitude(G, C_obs, cphases_norm, L)
+        elif method == 'full_python':
             FGG, FGt = FI_magnitude(G, C_obs, cphases_norm, L=L)
-        elif method == 'full_offdiagonal':
+        elif method == 'full_offdiagonal_python':
             FGG, FGt = FI_magnitude_offdiagonal(G, C_obs, cphases_norm, L=L)
+        elif method == 'full_offdiagonal':
+            from greg.cython_greg import _FI_magnitude_offdiagonal
+            FGG, FGt = _FI_magnitude_offdiagonal(G, C_obs, cphases_norm, L)
         elif method == 'full_benchmark':  # old implementation, thoroughly tested
             FGG, FGt = FI_magnitude_benchmark(G, C_obs, cphases_norm, L=L)
         else:
@@ -226,13 +232,20 @@ if __name__ == '__main__':
     
 
     C_f = lambda method: C_phase_history(G, cphases, C_obs=C_obs, L=L, method=method)
-    C_fm = lambda: C_f(method)
 
     Cs = {}
-    method_ref = 'expected_partial'
-    methods = ['expected_partial', 'observed_partial', 'full', 'full_offdiagonal', 'full_benchmark']
+    method_ref = 'full_benchmark'
+    methods = ['expected_partial', 'observed_partial', 'full', 'full_python', 'full_offdiagonal', 'full_offdiagonal_python', 'full_benchmark']
     for method in methods:
         Cs[method] = C_f(method)
+        
+    # import timeit
+    # for method in methods:
+    #     C_fm = lambda: C_f(method)
+    #     time_taken = timeit.timeit(C_fm, number=3)
+    #     print(f"{method}, {time_taken:.2f}")
+    #
+
     np.set_printoptions(precision=3, suppress=True)    
     for method in methods:
         dC = Cs[method] - Cs[method_ref]

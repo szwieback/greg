@@ -4,11 +4,13 @@
 import numpy as np
 # from scipy.linalg import eigh
 from scipy.linalg import eigh
+from pickle import FALSE
 
 cimport cython
 
 cdef extern from "complex.h":
     double complex conj(double complex)
+    double cimag(double complex)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -122,3 +124,91 @@ def _EVD(double complex[:, :, :] C_obs):
         lam, ceig_n_view = eigh(C_obs[n, :, :], subset_by_index=[P-1, P-1], eigvals_only=False)
         ceig_view[n, :] = ceig_n_view[:, 0]
     return ceig_view
+
+
+def _indtups(int P):
+    cdef list indtups = []
+    for indm in range(P):
+        indtups.append((indm, indm))
+    for indm in range(P):
+        for inds in range(indm + 1, P):
+            indtups.append((indm, inds))
+    return indtups
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def _FI_magnitude(
+        double [:, :, :] G, double complex[:, :, :] C_obs, double complex[:, :] cphases, long L):
+    # cphases is assumed to be normalized
+    cdef Py_ssize_t P = G.shape[2]
+    cdef list indtups = _indtups(P)
+    cdef Py_ssize_t N = len(indtups)
+    cdef Py_ssize_t M = G.shape[0]
+    FGG = np.zeros((M, N, N), dtype=np.float64)
+    FGt = np.zeros((M, N, P), dtype=np.float64)
+    cdef double [:, :, :] FGG_view = FGG
+    cdef double [:, :, :] FGt_view = FGt
+    cdef double val = 0.0
+    cdef (long, long) indtup1 = (0, 0)
+    cdef (long, long) indtup2 = (0, 0)
+    for jindtup1 in range(N):
+        indtup1 = indtups[jindtup1]
+        for jindtup2 in range(jindtup1, N):
+            indtup2 = indtups[jindtup2]
+            for m in range(M):
+                if indtup1[0] != indtup1[1] and indtup2[0] != indtup2[1]:
+                    val = -2 * L * (
+                        G[m, indtup1[0], indtup2[1]] * G[m, indtup2[0], indtup1[1]]
+                        +G[m, indtup1[0], indtup2[0]] * G[m, indtup2[1], indtup1[1]])
+                elif indtup1[0] == indtup1[1] and indtup2[0] == indtup2[1]:
+                    val = -L * (G[m, indtup1[0], indtup2[0]] * G[m, indtup1[0], indtup2[0]])
+                elif indtup1[0] != indtup1[1] and indtup2[0] == indtup2[1]:
+                    val = -2 * L * (G[m, indtup1[0], indtup2[0]] * G[m, indtup2[0], indtup1[1]])
+                elif indtup1[0] == indtup1[1] and indtup2[0] != indtup2[1]:
+                    val = -2 * L * (G[m, indtup2[0], indtup1[0]] * G[m, indtup1[0], indtup2[1]])
+                else:
+                    val = np.nan
+                FGG_view[m, jindtup1, jindtup2] = val
+                FGG_view[m, jindtup2, jindtup1] = val
+        if indtup1[0] != indtup1[1]:
+            for m in range(M):
+                val = - 2 * L * cimag(C_obs[m, indtup1[0], indtup1[1]] * conj(cphases[m, indtup1[0]])
+                          * cphases[m, indtup1[1]])     
+                for p in range(P):
+                    FGt_view[m, jindtup1, p] = val * ((indtup1[0] == p) - (indtup1[1] == p))
+    return FGG_view, FGt_view
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def _FI_magnitude_offdiagonal(
+        double [:, :, :] G, double complex[:, :, :] C_obs, double complex[:, :] cphases, long L):
+    # cphases is assumed to be normalized
+    cdef Py_ssize_t P = G.shape[2]
+    cdef list indtups = _indtups(P)[P:] # offdiagonal only
+    cdef Py_ssize_t N = len(indtups)
+    cdef Py_ssize_t M = G.shape[0]
+    FGG = np.zeros((M, N, N), dtype=np.float64)
+    FGt = np.zeros((M, N, P), dtype=np.float64)
+    cdef double [:, :, :] FGG_view = FGG
+    cdef double [:, :, :] FGt_view = FGt
+    cdef double val = 0.0
+    cdef (long, long) indtup1 = (0, 0)
+    cdef (long, long) indtup2 = (0, 0)
+    for jindtup1 in range(N):
+        indtup1 = indtups[jindtup1]
+        for jindtup2 in range(jindtup1, N):
+            indtup2 = indtups[jindtup2]
+            for m in range(M):
+                if indtup1[0] != indtup1[1] and indtup2[0] != indtup2[1]:
+                    val = -2 * L * (
+                        G[m, indtup1[0], indtup2[1]] * G[m, indtup2[0], indtup1[1]]
+                        +G[m, indtup1[0], indtup2[0]] * G[m, indtup2[1], indtup1[1]])
+                FGG_view[m, jindtup1, jindtup2] = val
+                FGG_view[m, jindtup2, jindtup1] = val
+        for m in range(M):
+            val = - 2 * L * cimag(C_obs[m, indtup1[0], indtup1[1]] * conj(cphases[m, indtup1[0]])
+                      * cphases[m, indtup1[1]])     
+            for p in range(P):
+                FGt_view[m, jindtup1, p] = val * ((indtup1[0] == p) - (indtup1[1] == p))
+    return FGG_view, FGt_view
