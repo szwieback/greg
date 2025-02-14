@@ -6,6 +6,9 @@ Created on Mar 29, 2022
 import numpy as np
 import warnings
 
+FI_methods = ('expected_partial', 'observed_partial', 'full', 'full_python', 
+              'full_offdiagonal', 'full_offdiagonal_python')
+
 def _A(P, clip_first=True):
     if clip_first:
         A = np.concatenate((-np.ones((P - 1, 1)), np.eye(P - 1)), axis=1)
@@ -39,7 +42,7 @@ def phases_covariance(G, C_obs=None, L=None, cphases=None, method='expected_part
     P = shape[-1]
     if shape[-2] != P: raise ValueError('G and C_obs need to be square')
     _G = G.reshape((-1, P, P))
-    _cphases = cphases.reshape((-1, P, P)) if cphases is not None else None
+    _cphases = cphases.reshape((-1, P)) if cphases is not None else None
     _C_obs = C_obs.reshape((-1, P, P)) if C_obs is not None else None
     C = C_phase_history(_G, cphases, L=L, C_obs=C_obs, normalize=True, method=method)
     C = C.reshape(shape[:-2] + C.shape[-2:])

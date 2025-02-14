@@ -12,4 +12,4 @@ from greg.hadamard import hadreg, hadcreg, hadspecreg
 from greg.ioput import  enforce_directory, load_object, save_object, read_parameters
 from greg.accuracy import circular_accuracy, bias
 from greg.spectral import specreg
-from greg.uncertainty import phases_covariance
+from greg.uncertainty import phases_covariance, FI_methods
