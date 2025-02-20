@@ -179,7 +179,7 @@ def C_phase_history(G, cphases, L=30, C_obs=None, normalize=True, method='full')
     else:
         if method == 'expected_partial':
             F = FI_expected_partial(G, L=L)
-            K = np.linalg.pinv(-F, hermitian=True) # guaranteed to be nonnegative definite
+            K = pinv_abs(-F)#np.linalg.pinv(-F, hermitian=True) # guaranteed to be nonnegative definite
         elif method == 'observed_partial':
             F = FI_theta_theta(G, C_obs, cphases_norm, L=L)
             K = pinv_abs(-F)
@@ -254,6 +254,7 @@ if __name__ == '__main__':
         dC = Cs[method] - Cs[method_ref]
         eigvd = np.linalg.eigh(dC)[0]
         eigv = np.linalg.eigh(Cs[method])[0]
-        print(method, np.mean(eigvd, axis=0), np.mean(eigv, axis=0))
+        # print(method, np.mean(eigvd, axis=0), np.median(eigv, axis=0))
+        print(method, np.mean(eigvd, axis=0), np.median(Cs[method][:, 1, 1]))
         
 
